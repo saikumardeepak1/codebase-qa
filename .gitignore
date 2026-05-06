@@ -1,0 +1,35 @@
+# Secrets
+.env
+.env.local
+.env.*.local
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+env/
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+dist/
+build/
+
+# Node
+node_modules/
+.next/
+.turbo/
+out/
+
+# OS
+.DS_Store
+*.log
+
+# Large files
+*.dmg
+*.zip
+*.tar.gz
+
+# Claude session
+.claude/
