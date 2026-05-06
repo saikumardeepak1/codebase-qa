@@ -82,7 +82,7 @@ export async function POST(req: Request) {
       // 2. Call Claude with streamText
       const result = streamText({
         model: anthropic("claude-sonnet-4-6"),
-        maxTokens: 2048,
+        maxOutputTokens: 2048,
         system: SYSTEM_PROMPT,
         messages: [
           ...history,
