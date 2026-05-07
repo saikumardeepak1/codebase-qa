@@ -50,6 +50,7 @@ class Citation(BaseModel):
     start_line: int
     end_line: int
     language: str
+    chunk_strategy: str = "ast"
 
 
 class CodeChunk(BaseModel):
@@ -61,3 +62,4 @@ class CodeChunk(BaseModel):
     start_line: int
     end_line: int
     content: str
+    chunk_strategy: str = "ast"
