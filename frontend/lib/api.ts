@@ -1,4 +1,6 @@
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+// Browser-side requests go through Next.js rewrite (/backend → http://127.0.0.1:8000)
+// to avoid IPv6/CORS issues when localhost resolves to ::1 but uvicorn is IPv4-only.
+const API_BASE = "/backend";
 
 export interface Citation {
   index: number;
