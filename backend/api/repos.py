@@ -1,14 +1,18 @@
-from fastapi import APIRouter, HTTPException
+import asyncio
+from fastapi import APIRouter, BackgroundTasks, HTTPException
 from models.schemas import IndexRepoRequest, IndexRepoResponse, RepoStatusResponse, IndexStatus
 from ingestion.cloner import validate_github_url, url_to_repo_id
-from ingestion.pipeline import get_status
-from tasks.index_repo import index_repo_task
+from ingestion.pipeline import get_status, run_pipeline
 
 router = APIRouter()
 
 
+def _run_pipeline_sync(github_url: str, repo_id: str) -> None:
+    run_pipeline(github_url, repo_id)
+
+
 @router.post("/repos/index", response_model=IndexRepoResponse)
-async def index_repo(request: IndexRepoRequest):
+async def index_repo(request: IndexRepoRequest, background_tasks: BackgroundTasks):
     try:
         clean_url = validate_github_url(request.github_url)
     except ValueError as e:
@@ -19,7 +23,7 @@ async def index_repo(request: IndexRepoRequest):
     if existing and existing.get("status") == IndexStatus.DONE.value:
         return IndexRepoResponse(repo_id=repo_id, status=IndexStatus.DONE, message="Already indexed.")
 
-    index_repo_task.delay(clean_url, repo_id)
+    background_tasks.add_task(_run_pipeline_sync, clean_url, repo_id)
     return IndexRepoResponse(repo_id=repo_id, status=IndexStatus.PENDING, message="Indexing started.")
 
 
