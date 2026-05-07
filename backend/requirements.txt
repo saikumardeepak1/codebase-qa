@@ -7,8 +7,7 @@ python-multipart==0.0.9
 pydantic-settings==2.4.0
 python-dotenv==1.0.1
 
-# Task queue
-celery==5.4.0
+# Job status tracking
 redis==5.0.8
 
 # Vector DB
