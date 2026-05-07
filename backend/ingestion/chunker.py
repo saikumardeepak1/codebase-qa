@@ -82,6 +82,7 @@ FUNCTION_NODE_TYPES = {
 }
 
 MAX_CHUNK_TOKENS = 512
+OVERLAP_TOKENS = 100
 ENCODING = tiktoken.get_encoding("cl100k_base")
 
 
@@ -142,14 +143,16 @@ def chunk_code_file(file_path: Path, repo_root: Path, repo_id: str) -> List[Code
                             repo_id=repo_id, file_path=relative_path,
                             language=language_name, chunk_type=node.type,
                             symbol_name=f"{symbol_name}_part{i+1}",
-                            start_line=start_line, end_line=end_line, content=sub
+                            start_line=start_line, end_line=end_line, content=sub,
+                            chunk_strategy="ast",
                         ))
                 else:
                     chunks.append(CodeChunk(
                         repo_id=repo_id, file_path=relative_path,
                         language=language_name, chunk_type=node.type,
                         symbol_name=symbol_name, start_line=start_line,
-                        end_line=end_line, content=content
+                        end_line=end_line, content=content,
+                        chunk_strategy="ast",
                     ))
                 return  # don't recurse into matched nodes
 
@@ -170,31 +173,52 @@ def chunk_code_file(file_path: Path, repo_root: Path, repo_id: str) -> List[Code
 
 def chunk_text_file(content: str, relative_path: str, repo_id: str, language: str = "text") -> List[CodeChunk]:
     lines = content.split("\n")
-    chunks, current_lines, current_tokens, chunk_index = [], [], 0, 0
+    chunks: List[CodeChunk] = []
+    chunk_index = 0
+    i = 0  # current line index (0-based)
 
-    for line in lines:
-        line_tokens = count_tokens(line)
-        is_heading = line.startswith("## ") or line.startswith("# ")
-        over_limit = current_tokens + line_tokens > MAX_CHUNK_TOKENS
+    while i < len(lines):
+        current_lines: List[str] = []
+        current_tokens = 0
+        start_idx = i  # 0-based, convert to 1-based below
 
-        if (is_heading or over_limit) and current_lines:
-            chunks.append(CodeChunk(
-                repo_id=repo_id, file_path=relative_path, language=language,
-                chunk_type="text", symbol_name=f"chunk_{chunk_index}",
-                start_line=0, end_line=0, content="\n".join(current_lines)
-            ))
-            chunk_index += 1
-            current_lines, current_tokens = [], 0
+        # Fill window up to MAX_CHUNK_TOKENS
+        while i < len(lines):
+            line_tokens = count_tokens(lines[i])
+            if current_tokens + line_tokens > MAX_CHUNK_TOKENS and current_lines:
+                break
+            current_lines.append(lines[i])
+            current_tokens += line_tokens
+            i += 1
 
-        current_lines.append(line)
-        current_tokens += line_tokens
+        if not current_lines:
+            # Single line exceeds the limit — include it and move on
+            current_lines.append(lines[i])
+            i += 1
 
-    if current_lines:
         chunks.append(CodeChunk(
             repo_id=repo_id, file_path=relative_path, language=language,
             chunk_type="text", symbol_name=f"chunk_{chunk_index}",
-            start_line=0, end_line=0, content="\n".join(current_lines)
+            start_line=start_idx + 1,
+            end_line=start_idx + len(current_lines),
+            content="\n".join(current_lines),
+            chunk_strategy="text",
         ))
+        chunk_index += 1
+
+        # Compute overlap: walk backwards to find ~OVERLAP_TOKENS worth of lines
+        overlap_tokens = 0
+        overlap_lines = 0
+        for line in reversed(current_lines):
+            t = count_tokens(line)
+            if overlap_tokens + t > OVERLAP_TOKENS:
+                break
+            overlap_tokens += t
+            overlap_lines += 1
+
+        # Back up by overlap_lines, but always advance by at least 1 line
+        if overlap_lines < len(current_lines):
+            i -= overlap_lines
 
     return chunks
 
