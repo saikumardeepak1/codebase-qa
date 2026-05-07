@@ -27,7 +27,7 @@ MAX_FILE_BYTES = 200_000
 
 
 def should_include_file(path: Path, repo_root: Path) -> bool:
-    for part in path.parts:
+    for part in path.relative_to(repo_root).parts:
         if part in EXCLUDED_DIRS:
             return False
     if path.suffix not in SUPPORTED_EXTENSIONS:
