@@ -1,8 +1,8 @@
-import asyncio
 from fastapi import APIRouter, BackgroundTasks, HTTPException
 from models.schemas import IndexRepoRequest, IndexRepoResponse, RepoStatusResponse, IndexStatus
 from ingestion.cloner import validate_github_url, url_to_repo_id
 from ingestion.pipeline import get_status, run_pipeline
+from storage.qdrant import collection_point_count
 
 router = APIRouter()
 
@@ -20,7 +20,12 @@ async def index_repo(request: IndexRepoRequest, background_tasks: BackgroundTask
 
     repo_id = url_to_repo_id(clean_url)
     existing = get_status(repo_id)
-    if existing and existing.get("status") == IndexStatus.DONE.value:
+    already_done = (
+        existing
+        and existing.get("status") == IndexStatus.DONE.value
+        and collection_point_count(repo_id) > 0
+    )
+    if already_done:
         return IndexRepoResponse(repo_id=repo_id, status=IndexStatus.DONE, message="Already indexed.")
 
     background_tasks.add_task(_run_pipeline_sync, clean_url, repo_id)

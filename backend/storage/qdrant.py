@@ -113,3 +113,11 @@ def collection_exists(repo_id: str) -> bool:
         return True
     except Exception:
         return False
+
+
+def collection_point_count(repo_id: str) -> int:
+    try:
+        info = sync_client.get_collection(collection_name(repo_id))
+        return info.points_count or 0
+    except Exception:
+        return 0
