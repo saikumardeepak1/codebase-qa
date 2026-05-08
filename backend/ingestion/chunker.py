@@ -81,6 +81,35 @@ FUNCTION_NODE_TYPES = {
     "kotlin": ["function_declaration", "class_declaration", "object_declaration"],
 }
 
+# Maps raw tree-sitter node types to friendly chunk_type values stored in Qdrant.
+_CHUNK_TYPE_FRIENDLY: dict[str, str] = {
+    "function_definition": "function",
+    "async_function_definition": "function",
+    "function_declaration": "function",
+    "function_item": "function",
+    "method_definition": "method",
+    "method_declaration": "method",
+    "method": "method",
+    "singleton_method": "method",
+    "class_definition": "class",
+    "class_declaration": "class",
+    "class_specifier": "class",
+    "class": "class",
+    "constructor_declaration": "constructor",
+    "type_declaration": "type",
+    "object_declaration": "object",
+    "impl_item": "impl",
+    "struct_item": "struct",
+    "struct_declaration": "struct",
+    "enum_item": "enum",
+    "enum_declaration": "enum",
+    "text": "text",
+}
+
+
+def _friendly_chunk_type(node_type: str) -> str:
+    return _CHUNK_TYPE_FRIENDLY.get(node_type, node_type)
+
 MAX_CHUNK_TOKENS = 512
 OVERLAP_TOKENS = 100
 ENCODING = tiktoken.get_encoding("cl100k_base")
@@ -137,11 +166,12 @@ def chunk_code_file(file_path: Path, repo_root: Path, repo_id: str) -> List[Code
                 start_line = node.start_point[0] + 1
                 end_line = node.end_point[0] + 1
 
+                friendly_type = _friendly_chunk_type(node.type)
                 if count_tokens(content) > MAX_CHUNK_TOKENS:
                     for i, sub in enumerate(split_large_chunk(content)):
                         chunks.append(CodeChunk(
                             repo_id=repo_id, file_path=relative_path,
-                            language=language_name, chunk_type=node.type,
+                            language=language_name, chunk_type=friendly_type,
                             symbol_name=f"{symbol_name}_part{i+1}",
                             start_line=start_line, end_line=end_line, content=sub,
                             chunk_strategy="ast",
@@ -149,7 +179,7 @@ def chunk_code_file(file_path: Path, repo_root: Path, repo_id: str) -> List[Code
                 else:
                     chunks.append(CodeChunk(
                         repo_id=repo_id, file_path=relative_path,
-                        language=language_name, chunk_type=node.type,
+                        language=language_name, chunk_type=friendly_type,
                         symbol_name=symbol_name, start_line=start_line,
                         end_line=end_line, content=content,
                         chunk_strategy="ast",

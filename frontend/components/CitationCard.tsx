@@ -7,12 +7,19 @@ interface Props {
   repoUrl: string;
 }
 
+/** Returns the last two path segments: "ingestion/chunker.py" */
+function shortPath(filePath: string): string {
+  const parts = filePath.split("/");
+  return parts.length >= 2 ? parts.slice(-2).join("/") : filePath;
+}
+
 export function CitationCard({ citation, repoUrl }: Props) {
   const href = repoUrl
     ? `${repoUrl}/blob/main/${citation.file_path}#L${citation.start_line}`
     : "#";
 
-  const fileName = citation.file_path.split("/").pop() ?? citation.file_path;
+  const label = shortPath(citation.file_path);
+  const lineLabel = citation.start_line > 0 ? `line ${citation.start_line}` : null;
 
   return (
     <a
@@ -37,9 +44,13 @@ export function CitationCard({ citation, repoUrl }: Props) {
       }}
     >
       <span style={{ color: "#d4a853" }}>[{citation.index}]</span>
-      <span>{fileName}</span>
-      <span style={{ color: "#555" }}>·</span>
-      <span className="truncate max-w-[140px]">{citation.symbol_name}</span>
+      <span className="truncate max-w-[180px]">{label}</span>
+      {lineLabel && (
+        <>
+          <span style={{ color: "#555" }}>·</span>
+          <span style={{ color: "#7a7a7a" }}>{lineLabel}</span>
+        </>
+      )}
     </a>
   );
 }

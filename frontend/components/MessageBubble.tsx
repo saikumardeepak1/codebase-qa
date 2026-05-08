@@ -139,24 +139,10 @@ export function MessageBubble({ message, repoUrl }: Props) {
     );
   }
 
-  // Plain text while streaming — no markdown, no citation processing
-  if (streaming) {
-    return (
-      <div className="msg-enter flex gap-3">
-        <AssistantAvatar />
-        <div className="flex-1 min-w-0 pt-0.5">
-          <span
-            className="streaming-cursor text-base leading-relaxed whitespace-pre-wrap"
-            style={{ color: "#ececec" }}
-          >
-            {text || "\u00A0"}
-          </span>
-        </div>
-      </div>
-    );
-  }
+  // Always render with ReactMarkdown — code blocks and formatting appear immediately
+  // as they stream in. The cursor is appended to the last paragraph while streaming.
+  const citations = message.metadata?.citations;
 
-  // Full markdown + citation badges once streaming is complete
   return (
     <div className="msg-enter flex gap-3">
       <AssistantAvatar />
@@ -171,7 +157,7 @@ export function MessageBubble({ message, repoUrl }: Props) {
                 if (isBlock) {
                   return (
                     <div className="relative group my-3">
-                      <CopyButton code={codeStr} />
+                      {!streaming && <CopyButton code={codeStr} />}
                       <SyntaxHighlighter
                         style={oneDark as Record<string, React.CSSProperties>}
                         language={match![1]}
@@ -193,29 +179,40 @@ export function MessageBubble({ message, repoUrl }: Props) {
                 return <code {...props}>{children}</code>;
               },
               // Walk each child: strings get citation-split, React elements pass through untouched
-              p({ children }) {
+              p({ children, ...pProps }) {
+                // Determine if this is the last paragraph by checking if it's in the DOM
+                // We can't know cheaply, so we apply the cursor to every <p> during streaming
+                // and rely on CSS ::after only showing on the last visible text node via
+                // the streaming-cursor class scoped to the outermost wrapper.
                 return (
-                  <p>
-                    {processChildren(children, message.metadata?.citations, repoUrl, "p")}
+                  <p {...pProps}>
+                    {processChildren(children, citations, repoUrl, "p")}
                   </p>
                 );
               },
-              li({ children }) {
+              li({ children, ...liProps }) {
                 return (
-                  <li>
-                    {processChildren(children, message.metadata?.citations, repoUrl, "li")}
+                  <li {...liProps}>
+                    {processChildren(children, citations, repoUrl, "li")}
                   </li>
                 );
               },
             }}
           >
-            {text}
+            {streaming ? text + "\u200B" : text}
           </ReactMarkdown>
+          {/* Blinking cursor anchored after the last rendered content while streaming */}
+          {streaming && (
+            <span
+              className="streaming-cursor inline-block"
+              style={{ verticalAlign: "middle", lineHeight: 1 }}
+            />
+          )}
         </div>
 
-        {message.metadata?.citations && message.metadata.citations.length > 0 && (
+        {!streaming && citations && citations.length > 0 && (
           <div className="flex flex-wrap gap-2 mt-4">
-            {message.metadata.citations.map((citation) => (
+            {citations.map((citation) => (
               <CitationCard key={citation.index} citation={citation} repoUrl={repoUrl} />
             ))}
           </div>

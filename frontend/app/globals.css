@@ -24,12 +24,13 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-/* Streaming cursor */
+/* Streaming cursor — rendered as a standalone <span> after the last content */
 .streaming-cursor::after {
   content: '▋';
   animation: blink 1s infinite;
   color: var(--accent);
-  margin-left: 1px;
+  margin-left: 2px;
+  font-size: 0.9em;
 }
 
 @keyframes blink {
