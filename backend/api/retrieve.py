@@ -18,7 +18,16 @@ async def retrieve(request: ChatRequest):
     if not raw_chunks:
         return {"context": "", "citations": []}
 
-    reranked = rerank_chunks(request.question, raw_chunks, top_n=5)
+    # Keep only the highest-scoring chunk per file — Cohere gets one representative
+    # chunk per file rather than multiple fragments that dilute the rerank budget.
+    seen: dict[str, dict] = {}
+    for chunk in raw_chunks:
+        fp = chunk.get("file_path", "")
+        if fp not in seen or chunk.get("score", 0) > seen[fp].get("score", 0):
+            seen[fp] = chunk
+    deduped = list(seen.values())
+
+    reranked = rerank_chunks(request.question, deduped, top_n=5)
     context, citations = build_context(reranked)
 
     return {
